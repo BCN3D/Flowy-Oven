@@ -29,8 +29,18 @@ LiquidCrystal lcd(34, 32, 30, 36, 28, 38);//LCD pins
 #define thermoCS 50
 #define thermoDO 48
 
+//Define the other pins
+#define SSR 17
+#define input_switch 21
+#define fan1 14
+#define fan2 20
 
-//int first, second;//temperature variables
+//Define target temperatures and times
+#define PREHEAT 130
+#define PREHEATDURATION 60000 //1 minute preheating
+#define REFLOW 245
+#define REFLOWDURATION 30000  //30 seconds reflowing
+#define RAMPDOWN 0
 
 // Initialize the Thermocouple
 // initialize the library with the numbers of the interface pins
@@ -48,22 +58,40 @@ int i;
 //-------------------------------------------------
 void setup()
   {
-    Serial.begin(115200);//for monitoring and logging in processing
+    //Declare pinModes
+    pinMode(SSR, OUTPUT);//solidstate switch
+    pinMode(input_switch, INPUT);//switch input
+    pinMode(fan1, OUTPUT);//fan
+    pinMode(fan2, OUTPUT);//fan
+
+    digitalWrite(fan2, LOW);
+    //pinMode(1, INPUT);//reset
+    //digitalWrite(1,HIGH);
+
+    // Initialize the lcd Screen
     lcd.begin(16, 4);
-    lcd.print("Arduino Reflow");
-    pinMode(17, OUTPUT);//solidstate switch
-    pinMode(21, INPUT);//switch input
-    pinMode(14, OUTPUT);//fan
-    pinMode(20, OUTPUT);//fan
-    digitalWrite(20, LOW);
-   // pinMode(1, INPUT);//reset
-    digitalWrite(1,HIGH);
-  //  digitalWrite(2, HIGH);//disable max6675
-  /*  SPI.setBitOrder(MSBFIRST);//SPI stuff
-    SPI.setDataMode(SPI_MODE0);
-    SPI.setClockDivider(SPI_CLOCK_DIV16);//no need to go fast
-    SPI.begin();*/
-    delay(500);
+    lcd.clear();
+    lcd.setCursor(3,0);
+    lcd.print("BCN3DTech");
+    lcd.setCursor(2,1);
+    lcd.print("Flowy Oven");
+
+    delay(1500);
+
+    Serial.begin(9600);//for monitoring and logging in processing
+    Serial.println("Starting the BCN3DTech Flowy Oven");
+
+    Serial.print("Internal Temp: ");
+    Serial.println(thermocouple.readInternal());
+    temperature = thermocouple.readCelsius();
+    while(isnan(temperature)) {
+      Serial.println("Error! Please check and reboot");
+      delay(1000);
+      temperature = thermocouple.readCelsius();
+    }
+    Serial.print("Oven temperature: ");
+    Serial.println(temperature);
+
 }   // end Setup
 
 void loop(){
@@ -73,12 +101,12 @@ void loop(){
   heat_control();
   switch_check();
   fan_control();
-  //Serial.println(int(temperature));
 
 }//loop
 
 void get_temp(){
- temperature = thermocouple.readCelsius();
+  delay(5);     //Calm down the sensor and the reading
+  temperature = thermocouple.readCelsius();
 
 }// end get temp
 
@@ -139,59 +167,59 @@ void reflow_update(){
 
 }// end reflow update
 
-void lcd_update(){
-lcd.clear();
-lcd.print("PV=");
-lcd.print(temperature);
-lcd.setCursor(0,1);
-lcd.print("RATE=  ");
-lcd.print(rate);//show the rate as well
-lcd.setCursor(4,2);
-lcd.print(reflow_status[reflow_stage]);
-
+void lcd_update()
+  {
+    lcd.clear();
+    lcd.print("PV=");
+    lcd.print(temperature);
+    lcd.setCursor(0,1);
+    lcd.print("RATE=  ");
+    lcd.print(rate);//show the rate as well
+    lcd.setCursor(4,2);
+    lcd.print(reflow_status[reflow_stage]);
 }// end lcd_update
 
-void heat_control(){//starigt forward here
-  if(temperature<setpoint)
-  digitalWrite(17, HIGH);
-  else
-  digitalWrite(17,LOW);
+void heat_control() {
+    if(temperature<setpoint) {
+      digitalWrite(SSR, HIGH);
+    } else  {
+      digitalWrite(SSR,LOW);
+    }
 }//end heat_control
 
 void switch_check(){//could be better, but it works
-  int buton = digitalRead(21);
+  int buton = digitalRead(input_switch);
   int reset = digitalRead(1);
-  if(reset==LOW) digitalWrite(20, HIGH);
-  else digitalWrite(20, LOW);
+  if(reset==LOW) digitalWrite(fan2, HIGH);
+  else digitalWrite(fan2, LOW);
   if(buton==LOW){
     lcd.clear();
     if(reflow_stage>0){
-    lcd.print("Stopping...");
-    reflow_stage=0;
-     delay(500);
+      lcd.print("Stopping...");
+      reflow_stage=0;
       delay(500);
-    }
-    else{
-    lcd.print("Starting...");
-    reflow_stage=1;
+      delay(500);
+    } else  {
+      lcd.print("Starting...");
+      reflow_stage=1;
     }
     delay(200);
-     delay(500);
+    delay(500);
   }
 
 }// end switch check
 
 void fan_control(){
   if(reflow_stage ==0 || reflow_stage ==3)//keep on continuously if idle or ramping down
-  digitalWrite(14, LOW);
+  digitalWrite(fan1, LOW);
   else
-  digitalWrite(14, HIGH);
+  digitalWrite(fan1, HIGH);
 
   if(reflow_stage >0  && reflow_stage <3){//give a little 'love tap' if the temp is higher than the setpoint or if it's ramping quickly
     if(temperature>setpoint || rate>1){
-    digitalWrite(14, LOW);
+    digitalWrite(fan1, LOW);
     delay(500);
-    digitalWrite(14,HIGH);}
+    digitalWrite(fan1,HIGH);}
   }
 
 }// end fan

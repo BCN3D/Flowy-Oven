@@ -19,7 +19,8 @@ This Reflow Oven is based on the following projects:
 
 ## Documents
 The following list explains what contains each folder.
-+ Code: where the `Arduino` code lives. There are also a few examples related to the LCD display and Thermocouple.
-+ Datasheets: folder to store the Datasheets related to the project.
-+ img: some pictures of the project.
-+ Printed Parts: the `CAD` files of the printed parts that we've used to mount the system.
++ **src:** where the `Arduino` code lives.
++ **Examples:** Here are also a few examples related to the LCD display and Thermocouple.
++ **Datasheets:** folder to store the Datasheets related to the project.
++ **img:** some pictures of the project.
++ **Printed Parts:** the `CAD` files of the printed parts that we've used to mount the system.
