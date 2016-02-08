@@ -169,13 +169,21 @@ void reflow_update(){
 
 void lcd_update()
   {
-    lcd.clear();
-    lcd.print("PV=");
-    lcd.print(temperature);
+    lcd.clear();  //Sets cursor position to zero, zero
+    lcd.print("Temp=");
+    lcd.print(temperature,1);
     lcd.setCursor(0,1);
-    lcd.print("RATE=  ");
-    lcd.print(rate);//show the rate as well
-    lcd.setCursor(4,2);
+    lcd.print("Rate=");
+    lcd.print(rate); //show the rate as well
+    lcd.setCursor(8,1);
+    if (reflow_stage == 1) {
+      lcd.print("t=");
+      lcd.print(millis()/1000,0);
+      lcd.print("s");
+    } else {
+      lcd.print("idle");
+    }
+    lcd.setCursor(0,2);
     lcd.print(reflow_status[reflow_stage]);
 }// end lcd_update
 
@@ -188,23 +196,21 @@ void heat_control() {
 }//end heat_control
 
 void switch_check(){//could be better, but it works
-  int buton = digitalRead(input_switch);
+  int button = digitalRead(input_switch);
   int reset = digitalRead(1);
   if(reset==LOW) digitalWrite(fan2, HIGH);
   else digitalWrite(fan2, LOW);
-  if(buton==LOW){
+  if(button==LOW){
     lcd.clear();
     if(reflow_stage>0){
       lcd.print("Stopping...");
       reflow_stage=0;
-      delay(500);
-      delay(500);
+      delay(1000);
     } else  {
       lcd.print("Starting...");
       reflow_stage=1;
     }
-    delay(200);
-    delay(500);
+    delay(1000);
   }
 
 }// end switch check
