@@ -33,7 +33,7 @@ LiquidCrystal lcd(34, 32, 30, 36, 28, 38);//LCD pins
 #define SSR 17
 #define input_switch 21
 #define fan1 14
-#define fan2 20
+#define buzzer 20
 
 //Define target temperatures and times
 #define PREHEAT 130
@@ -49,10 +49,11 @@ Adafruit_MAX31855 thermocouple(thermoCLK, thermoCS, thermoDO);
 //------------------VARIABLES----------------------
 
 // Reflow status strings
-String reflow_status[4] = {"press to start","preheat","critical","rampdwn"};
+String reflow_status[4] = {"press to start","preheat","critical","rampdown"};
 double temperature, old_temperature;
 double c;
 unsigned long start_time=0, old_time;
+unsigned long counter=0;
 int setpoint = 0, reflow_stage=0, rate;
 int i;
 //-------------------------------------------------
@@ -62,21 +63,21 @@ void setup()
     pinMode(SSR, OUTPUT);//solidstate switch
     pinMode(input_switch, INPUT);//switch input
     pinMode(fan1, OUTPUT);//fan
-    pinMode(fan2, OUTPUT);//fan
+    pinMode(buzzer, OUTPUT);//fan
 
-    digitalWrite(fan2, LOW);
+    digitalWrite(buzzer, LOW);
     //pinMode(1, INPUT);//reset
     //digitalWrite(1,HIGH);
 
     // Initialize the lcd Screen
     lcd.begin(16, 4);
     lcd.clear();
-    lcd.setCursor(3,0);
+    lcd.setCursor(5,0);
     lcd.print("BCN3DTech");
-    lcd.setCursor(2,1);
+    lcd.setCursor(4,1);
     lcd.print("Flowy Oven");
 
-    delay(1500);
+    delay(2500);
 
     Serial.begin(9600);//for monitoring and logging in processing
     Serial.println("Starting the BCN3DTech Flowy Oven");
@@ -105,9 +106,10 @@ void loop(){
 }//loop
 
 void get_temp(){
-  delay(5);     //Calm down the sensor and the reading
+  delay(50);     //Calm down the sensor and the reading
   temperature = thermocouple.readCelsius();
-
+  Serial.print("Temp = ");
+  Serial.println(temperature);
 }// end get temp
 
 void reflow_update(){
@@ -120,7 +122,7 @@ void reflow_update(){
     if(start_time == 0 && temperature>120)//start timer for preheat soak
     start_time=millis();
 
-    setpoint=130;//regulate here during preheat
+    setpoint=PREHEAT;//regulate here during preheat
     rate = (temperature-old_temperature)/((millis()-old_time)/1000);//get rate of rise
     if(rate>3)//if rising too fast, kill the setpoint so it slows down
     setpoint=0;
@@ -128,7 +130,7 @@ void reflow_update(){
     old_time = millis();//used to find rate
     old_temperature=temperature;
 
-    if((millis()-start_time)>60000 && start_time !=0){//this is where it checks to see if it needs to move on to the next stage
+    if((millis()-start_time)>PREHEATDURATION && start_time !=0){//this is where it checks to see if it needs to move on to the next stage
       reflow_stage++;
       start_time=0;}
   }//1
@@ -136,7 +138,7 @@ void reflow_update(){
     if(start_time ==0 && temperature>195 )//start timer during this stage
     start_time=millis();
 
-    setpoint=245;//regulate here
+    setpoint=REFLOW;//regulate here
     rate = (temperature-old_temperature)/((millis()-old_time)/1000);//eh, you can regulate the rate here as well if needed
     if(rate>3)
     setpoint=0;
@@ -144,7 +146,7 @@ void reflow_update(){
     old_time = millis();//rate stuff again
     old_temperature=temperature;
 
-    if((millis()-start_time)>30000 && start_time !=0){//how long to stay in
+    if((millis()-start_time)>REFLOWDURATION && start_time !=0){//how long to stay in
       reflow_stage++;
       start_time=0;}//estaba en 20000
   }//2
@@ -175,15 +177,17 @@ void lcd_update()
     lcd.setCursor(0,1);
     lcd.print("Rate=");
     lcd.print(rate); //show the rate as well
-    lcd.setCursor(8,1);
-    if (reflow_stage == 1) {
+    lcd.print("
+    C/s");
+    lcd.setCursor(12,1);
+    if (reflow_stage > 0 && reflow_stage < 3) {
       lcd.print("t=");
-      lcd.print(millis()/1000,0);
+      lcd.print((millis()/1000)-counter);
       lcd.print("s");
     } else {
       lcd.print("idle");
     }
-    lcd.setCursor(0,2);
+    lcd.setCursor(4,4);
     lcd.print(reflow_status[reflow_stage]);
 }// end lcd_update
 
@@ -197,16 +201,20 @@ void heat_control() {
 
 void switch_check(){//could be better, but it works
   int button = digitalRead(input_switch);
-  int reset = digitalRead(1);
-  if(reset==LOW) digitalWrite(fan2, HIGH);
-  else digitalWrite(fan2, LOW);
+  //int reset = digitalRead(1);
+  //if(reset==LOW) digitalWrite(buzzer, HIGH);
+  //else digitalWrite(buzzer, LOW);
   if(button==LOW){
     lcd.clear();
     if(reflow_stage>0){
+      counter = 0;
+      lcd.setCursor(4,1);
       lcd.print("Stopping...");
       reflow_stage=0;
       delay(1000);
     } else  {
+      counter = millis()/1000;
+      lcd.setCursor(4,1);
       lcd.print("Starting...");
       reflow_stage=1;
     }
@@ -217,9 +225,9 @@ void switch_check(){//could be better, but it works
 
 void fan_control(){
   if(reflow_stage ==0 || reflow_stage ==3)//keep on continuously if idle or ramping down
-  digitalWrite(fan1, LOW);
-  else
   digitalWrite(fan1, HIGH);
+  else
+  digitalWrite(fan1, LOW);
 
   if(reflow_stage >0  && reflow_stage <3){//give a little 'love tap' if the temp is higher than the setpoint or if it's ramping quickly
     if(temperature>setpoint || rate>1){
