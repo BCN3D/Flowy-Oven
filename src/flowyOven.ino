@@ -50,6 +50,10 @@ Adafruit_MAX31855 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 // Reflow status strings
 String reflow_status[4] = {"press to start","preheat","critical","rampdown"};
+// List of tones to play
+int tones[] = {261, 277, 294, 311, 330, 349, 370, 392, 415, 440};
+//            mid C  C#   D    D#   E    F    F#   G    G#   A}
+#define TONESSIZE sizeof(tones)/sizeof(int)
 double temperature, old_temperature;
 double c;
 unsigned long start_time=0, old_time;
@@ -161,9 +165,11 @@ void reflow_update(){
     setpoint=205;
     old_time = millis();
     old_temperature=temperature;
-    if((millis()-start_time)>60000 && start_time !=0){
+    if((millis()-start_time)>PREHEATDURATION && start_time !=0){
       reflow_stage=0;
-      start_time=0;} //esta en 60000
+      start_time=0;
+      playTone();
+    }
   }//3
 
 
@@ -177,8 +183,7 @@ void lcd_update()
     lcd.setCursor(0,1);
     lcd.print("Rate=");
     lcd.print(rate); //show the rate as well
-    lcd.print("
-    C/s");
+    lcd.print("C/s");
     lcd.setCursor(12,1);
     if (reflow_stage > 0 && reflow_stage < 3) {
       lcd.print("t=");
@@ -237,3 +242,11 @@ void fan_control(){
   }
 
 }// end fan
+
+void playTone() {
+  for (size_t i = 0; i < TONESSIZE; i++) {
+    tone(buzzer, tones[i]);
+    delay(250);
+  }
+  noTone(buzzer);
+}// end playTone
